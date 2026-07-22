@@ -7,6 +7,8 @@ The log file has the following format:
 ```
 dd/mm/yyyy, hh:mm:ss	<recordid>	<duration>	<outcome>	<initial characters of notes added if any>
 ```
+Separators are tabs, except between date and time. Record ID may be empty, as may the notes be.
+
 Special cases:
 * An outcome of "Interviewer_Wait" is time spent waiting for a call to be connected
 * We identify subcases of outcomes based on presence of specific markers in the notes:
