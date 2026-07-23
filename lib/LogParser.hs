@@ -71,7 +71,7 @@ parseLine = choice [try parseContactRecord, parseNonContactRecord]
             daterec <- parseDate
             void $ string ", "
             timerec <- parseTime
-            void $ count 2 $ char '\t'
+            void $ choice [ try $ count 2 $ char '\t', string "\t \t"] -- handle the case where the record id is missing
             duration <- parseTime
             void $ char '\t'
             status <- many1 recordCharacter
@@ -79,4 +79,4 @@ parseLine = choice [try parseContactRecord, parseNonContactRecord]
             return $ NonContactRecord daterec timerec duration status
 
 parseLog :: String -> IO String -> IO (Either ParseError [LogRecord])
-parseLog name content = content >>= runParserT (sepBy parseLine endOfLine) () name
+parseLog name content = content >>= runParserT (parseLine `endBy` endOfLine) () name

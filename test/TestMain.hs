@@ -42,7 +42,7 @@ testTree = testGroup "parser tests"
                     "xxx/xxxxx"),
 
         testCase "can parse line without record id and notes" $ do
-            runParser parseLine () "test data" "22/07/2026, 09:09:09\t\t00:00:23\tInterviewer_Wait\t "
+            runParser parseLine () "test data" "22/07/2026, 09:09:09\t \t00:00:23\tInterviewer_Wait\t "
                 @?= Right (NonContactRecord 
                     (DateRecord 22 7 2026) 
                     (TimeRecord 9 9 9)

@@ -15,7 +15,7 @@ Special cases:
   * "HUDI" is a subcase of both the CallbackAnotherTime and Refused categories, which we count separately.
   * "Screening" is also a subcase of CallbackAnotherTime that's tracked separately.
 
-Outcome categories we track are: `Answering Machine, CallbackAnotherTime, Appointment*, *Refus*, Abandon*, Complet*, NoAnswer/Busy`.
+Outcome categories we track are: `Answering Machine, CallbackAnotherTime, Appointment*, *Refus*, Abandon*, Complet*, NoAnswer/Busy, OOQ*`.
 Any other categories are reported in an "Other" category along with a brief list.
 
 Average timings and standard deviation for each category are presented along with total numbers.
