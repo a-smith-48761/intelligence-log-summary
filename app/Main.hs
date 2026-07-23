@@ -8,6 +8,9 @@ import Data.Set(Set)
 import qualified Data.Set as Set
 import Data.Char(toUpper)
 import Text.Parsec.Error(ParseError)
+import Text.Printf
+import Text.Read (Lexeme(String))
+import Data.Data (ConstrRep(FloatConstr))
 
 data StatusCategory =
   AnsweringMachine | CallbackAnotherTime | Appointment |
@@ -24,9 +27,11 @@ data StatCounter =
   deriving (Show, Eq, Ord)
 
 data Summary =  Summary
-  (Map StatusCategory StatCounter)  -- summaries for each kind of item we're tracking
-  StatCounter                       -- and overall summary of all items
-  (Set String)                      -- and set of outcomes included in the "Other" category
+  (Map StatusCategory StatCounter)       -- summaries for each kind of item we're tracking
+  StatCounter                            -- and overall summary of all items
+  (Set String)                           -- and set of outcomes included in the "Other" category
+  (Maybe TimeRecord)                     -- and the earliest time in the log 
+  (Maybe TimeRecord)                     -- and the latest time in the log
   deriving (Show, Eq, Ord)
 
 recordDurationInSeconds :: LogRecord -> Int
@@ -36,6 +41,10 @@ recordDurationInSeconds (NonContactRecord _ _ duration _)  = durationToSeconds d
 recordOutcome :: LogRecord -> String
 recordOutcome (ContactRecord _ _ _ _ outcome _) = outcome
 recordOutcome (NonContactRecord _ _ _ outcome)  = outcome
+
+recordTime :: LogRecord -> TimeRecord
+recordTime (ContactRecord _ time _ _ _ _) = time
+recordTime (NonContactRecord _ time _ _)  = time
 
 durationToSeconds :: TimeRecord -> Int
 durationToSeconds (TimeRecord h m s) = h*3600 + m*60 + s
@@ -54,7 +63,7 @@ recordCategory :: LogRecord -> StatusCategory
 recordCategory (ContactRecord _ _ _ _ cat note)
   | cat == "Answering machine"                                     = AnsweringMachine
   | "HUDI" `isInfixOf` ucaseNote && cat == "CallbackAnotherTime"   = HUDI_CBAT
-  | "HUDI" `isInfixOf` ucaseNote && "Refus" `isPrefixOf` cat       = HUDI_CBAT
+  | "HUDI" `isInfixOf` ucaseNote && "Refus" `isPrefixOf` cat       = HUDI_Ref
   | "SCREEN" `isInfixOf` ucaseNote                                 = Screened
   | cat == "CallbackAnotherTime"                                   = CallbackAnotherTime
   | "Refus" `isInfixOf` cat                                        = Refusal
@@ -71,16 +80,18 @@ emptyStats :: StatCounter
 emptyStats = StatCounter 0 0 0
 
 emptySummary :: Summary
-emptySummary = Summary Map.empty emptyStats Set.empty
+emptySummary = Summary Map.empty emptyStats Set.empty Nothing Nothing
 
 updateSummary :: LogRecord -> Summary -> Summary
-updateSummary record (Summary catMap totals otherOutcomes) =
+updateSummary record (Summary catMap totals otherOutcomes earliestTime latestTime) =
   let duration = recordDurationInSeconds record
       category = recordCategory record
       in
         Summary (updateCategoryMap catMap category duration)
                 (updateStats totals duration)
                 (updateOtherSet otherOutcomes category $ recordOutcome record)
+                (updateEarliestTime earliestTime record)
+                (updateLatestTime latestTime record)
   where
     -- updateCategoryMap adds duration to the stats for category cat, or adds a new stat counter if none exists
     updateCategoryMap m cat duration = Map.alter (alterStats duration) cat m
@@ -99,8 +110,38 @@ updateSummary record (Summary catMap totals otherOutcomes) =
     updateOtherSet s Other outcome = Set.insert outcome s
     updateOtherSet s _ _ = s
 
+    updateEarliestTime Nothing record = Just $ recordTime record
+    updateEarliestTime (Just t) record = Just $ min t (recordTime record)
+
+    updateLatestTime Nothing record = Just $ recordTime record
+    updateLatestTime (Just t) record = Just $ max t (recordTime record)
+
 summaryToText :: Summary -> String
-summaryToText = show
+summaryToText (Summary catMap totals otherOutcomes earliestTime latestTime) =
+  "Summary " ++ fmtTime earliestTime ++ " - " ++ fmtTime latestTime ++ "\n" ++
+  "---------------------------\n" ++
+  Map.foldMapWithKey fmtCategoryDetails catMap ++ "\n" ++
+  "Totals: " ++ fmtStats totals ++ "\n" ++
+  "Outcomes included in 'Other': " ++ show (Set.toList otherOutcomes) ++ "\n"
+  where
+    fmtTime :: Maybe TimeRecord -> String
+    fmtTime (Just (TimeRecord h m s)) = printf "%02d:%02d:%02d" h m s
+    fmtTime Nothing                   = "--:--:--"
+
+    fmtCategoryDetails :: StatusCategory -> StatCounter -> String
+    fmtCategoryDetails sc stats = show sc ++ ": " ++ fmtStats stats ++ "\n"
+
+    fmtStats :: StatCounter -> String
+    fmtStats (StatCounter count total sqTotal) = printf "%d calls (mean = %0.3fs, sd = %0.3fs)" count (calcMean count total) (calcSd count total sqTotal)
+
+    calcMean :: Int -> Int -> Float
+    calcMean count total = fromIntegral total / fromIntegral count
+
+    calcVariance :: Int -> Int -> Int -> Float
+    calcVariance count total sqTotal = fromIntegral (total*total - sqTotal) / fromIntegral (count + 1)
+
+    calcSd :: Int -> Int -> Int -> Float
+    calcSd c t s = sqrt $ calcVariance c t s
 
 generateLogSummary :: Either ParseError [LogRecord] -> String
 generateLogSummary (Left msg) = "Error parsing log: " ++ show msg

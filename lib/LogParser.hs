@@ -12,7 +12,7 @@ import Text.Parsec.Char
 import Control.Monad (void)
 
 data DateRecord = DateRecord Int Int Int deriving (Show, Read, Eq)
-data TimeRecord = TimeRecord Int Int Int deriving (Show, Read, Eq)
+data TimeRecord = TimeRecord Int Int Int deriving (Show, Read, Eq, Ord)
 data LogRecord =
     ContactRecord DateRecord TimeRecord String TimeRecord String String |
     NonContactRecord DateRecord TimeRecord TimeRecord String
