@@ -138,7 +138,7 @@ summaryToText (Summary catMap totals otherOutcomes earliestTime latestTime) =
     calcMean count total = fromIntegral total / fromIntegral count
 
     calcVariance :: Int -> Int -> Int -> Float
-    calcVariance count total sqTotal = fromIntegral (total*total - sqTotal) / fromIntegral (count + 1)
+    calcVariance count total sqTotal = fromIntegral (count * sqTotal - total*total) / fromIntegral (count*count)
 
     calcSd :: Int -> Int -> Int -> Float
     calcSd c t s = sqrt $ calcVariance c t s
